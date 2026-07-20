@@ -46,12 +46,16 @@ for flight in flights:
     else:
         current_price=999999
     driver.implicitly_wait(10)
-    price = driver.find_element(By.CLASS_NAME, "tZe0ff").text
-    price = price[1:]
-    price = int(price)
+    
+    fare_name = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), 'Delta Main Classic')]")))
+    container = fare_name.find_element(By.XPATH, "./parent::*")
+    price = container.find_element(By.CLASS_NAME, "tZe0ff").text
+    price = int(price[1:])
     if price < current_price:
         # Send the notifications
         notify(flight['flight'], current_price, price)
         with open(r"path_of_saved_price" + str(flights.index(flight)) + r".txt", "w") as text_file:
             text_file.write(str(price))
         text_file.close()
+
+driver.quit()
