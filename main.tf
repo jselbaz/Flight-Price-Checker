@@ -5,7 +5,7 @@ data "aws_ecr_repository" "priceChecker" {
 }
 
 data "aws_iam_role" "docker-price-checker-role" {
-  name = "docker-price-checker-role-umwe0r8o"
+  name = "docker-price-checker_tf-role-cu47mrbj"
 }
 
 resource "aws_lambda_function" "docker-price-checker_tf" {
