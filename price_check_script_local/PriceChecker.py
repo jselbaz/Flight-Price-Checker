@@ -33,6 +33,22 @@ def notify(flight_num, current_price, price):
     s.sendmail("sender_email@gmail.com", "12345678910@vtext.com", email_message)  # This send you a text - check readme for other cell service providers
     s.quit()
 
+def get_economy_fare(driver):
+    prices = WebDriverWait(driver, 20).until(
+        EC.presence_of_all_elements_located((By.CLASS_NAME, "tZe0ff"))
+    )
+    names = driver.find_elements(By.TAG_NAME, "h3")
+    names = [n for n in names if n.text.strip()]
+
+    if len(prices) < 2 or len(names) < 2:
+        return None
+
+    # sanity check: index 0 should be a "basic"-labeled fare
+    if "basic" not in names[0].text.lower():
+        print(f"Warning: expected Basic Economy at index 0, got '{names[0].text}' — verify manually")
+
+    return names[1].text, prices[1].text
+
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
 chrome_options.add_argument("--enable-javascript")
@@ -47,10 +63,13 @@ for flight in flights:
         current_price=999999
     driver.implicitly_wait(10)
     
-    fare_name = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), 'Delta Main Classic')]")))
-    container = fare_name.find_element(By.XPATH, "./parent::*")
-    price = container.find_element(By.CLASS_NAME, "tZe0ff").text
-    price = int(price[1:])
+    # fare_name = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//h3[contains(text(), 'Delta Main Classic')]")))
+    # container = fare_name.find_element(By.XPATH, "./parent::*")
+    # price = container.find_element(By.CLASS_NAME, "tZe0ff").text
+    # price = int(price[1:])
+
+    result = get_economy_fare(driver)
+    price = int(result[1][1:])
     if price < current_price:
         # Send the notifications
         notify(flight['flight'], current_price, price)
