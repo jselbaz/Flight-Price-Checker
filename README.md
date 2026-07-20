@@ -1,4 +1,4 @@
-# SW Price Checker
+# Flight Price Checker
 
 ## Summary
 This script allows you to scrape flight prices using google flights. If the price drops it will email and/or text you an alert so you can rebook at the lower price.
