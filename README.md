@@ -1,11 +1,11 @@
 # SW Price Checker
 
 ## Summary
-Now that Southwest has their prices listed on google flights this script allows you to scrape and compare prices to a manually set baseline. If the price drops you can either email or text yourself an alert so you can rebook at the lower price.
+This script allows you to scrape flight prices using google flights. If the price drops it will email and/or text you an alert so you can rebook at the lower price.
 
 ## Installation
-Recommend installing pip to manage dependencies
-pip install -r /path/to/requirements.txt
+Recommend installing uv to manage dependencies
+uv pip install -r /path/to/requirements.txt
 
 This requires an App Password if using gmail which can be created [here](https://myaccount.google.com/apppasswords)
 
