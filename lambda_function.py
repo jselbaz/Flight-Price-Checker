@@ -6,7 +6,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 import smtplib
 import boto3
-import os
 import re
 
 client = boto3.client('ssm')
@@ -53,35 +52,35 @@ def lambda_handler(event, context):
             service_log_path="/tmp/chromedriver.log"
         )
 
-        driver = webdriver.Chrome(
-            service=service,
-            options=chrome_options
-        )
+        return webdriver.Chrome(service=service, options=chrome_options)
 
-        return driver
+    def get_flights():
+        """Scan flight_pricing for items that have both a flight key and a url — these are the tracked flights."""
+        response = table.scan()
+        items = response.get('Items', [])
 
-    flight_vars = {}
-    url_vars = {}
+        while 'LastEvaluatedKey' in response:
+            response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            items.extend(response.get('Items', []))
 
-    for name, value in os.environ.items():
-        m = re.match(r"^FLIGHT(\d+)$", name)
-        if m:
-            flight_vars[m.group(1)] = int(value)
-        m = re.match(r"^URL(\d+)$", name)
-        if m:
-            url_vars[m.group(1)] = value
+        flights = []
+        for item in items:
+            if 'flight' in item and 'url' in item:
+                flights.append({
+                    "flight": item['flight'],
+                    "url": item['url'],
+                    "current_price": item.get('price')  # may be None if never checked
+                })
+            else:
+                print(f"Warning: skipping item missing flight/url: {item}")
 
-    flights = []
-    for suffix, flight_num in flight_vars.items():
-        if suffix in url_vars:
-            flights.append({"flight": flight_num, "url": url_vars[suffix]})
-        else:
-            print(f"Warning: FLIGHT{suffix} has no matching URL{suffix}, skipping")
+        return flights
 
-    def check_price(flight_num):
-        response =  table.get_item(Key={'flight': flight_num})
-        current_price = response.get('Item')['price']
-        return current_price
+    flights = get_flights()
+    
+    if not flights:
+        print("No flights found in flight_pricing table — nothing to check.")
+        return {"statusCode": 200, "body": "No flights configured."}
 
     # Create an App Password for gmail here https://myaccount.google.com/apppasswords
     def notify(flight_num, current_price, price, fare_num):
@@ -141,17 +140,22 @@ def lambda_handler(event, context):
                     continue
 
                 fare_name, price = result
+                current_price = flight['current_price']
 
-                check = table.get_item(Key={'flight': flight['flight']})
-                if check.get('Item') is None:
-                    table.put_item(Item={'flight': flight['flight'], 'price': price})
-                    current_price = price
-                else:
-                    current_price = check_price(flight['flight'])
-
-                if price < current_price:
+                if current_price is None:
+                    # first time this flight has been checked — set baseline, don't alert
+                    table.update_item(
+                        Key={'flight': flight['flight']},
+                        UpdateExpression="SET price = :p",
+                        ExpressionAttributeValues={':p': price}
+                    )
+                elif price < current_price:
                     notify(flight['flight'], current_price, price, fare_name)
-                    table.put_item(Item={'flight': flight['flight'], 'price': price})
+                    table.update_item(
+                        Key={'flight': flight['flight']},
+                        UpdateExpression="SET price = :p",
+                        ExpressionAttributeValues={':p': price}
+                    )
 
             except Exception as e:
                 print(f"Failed to check flight {flight['flight']}: {e}")
@@ -160,7 +164,4 @@ def lambda_handler(event, context):
     finally:
         driver.quit()
 
-    return {
-        "statusCode": 200,
-        "body": "Prices checked!!!"
-    }
+    return {"statusCode": 200, "body": "Prices checked!!!"}

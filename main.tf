@@ -19,17 +19,7 @@ resource "aws_lambda_function" "docker-price-checker_tf" {
     size = "800"
   }
 
-
   role = data.aws_iam_role.docker-price-checker-role.arn
-
-  environment {
-    variables = {
-      FLIGHT1 = "846",
-      FLIGHT2 = "856",
-      URL1 = "https://www.google.com/travel/flights/booking?tfs=CBwQAhpKEgoyMDI2LTA5LTA1Ih8KA0xHQRIKMjAyNi0wOS0wNRoDREZXKgJETDIDODQ2KAA6AkY5agcIARIDTEdBcgwIAhIIL20vMGYycnFAAUgBcAGCAQsI____________AZgBAsgBAQ&tfu=CmhDalJJZW5KWFdISnZka0pUVkdkQll6VlJlbmRDUnkwdExTMHRMUzB0TFhkbVoyY3lORUZCUVVGQlIzQmtaeTFqVDBaVlh6SkJFZ1ZFVERnME5ob0tDT3gzRUFJYUExVlRSRGdjY094MxICCAAiAA",
-      URL2 = "https://www.google.com/travel/flights/booking?tfs=CBwQAhpKEgoyMDI2LTA5LTE1Ih8KA0RGVxIKMjAyNi0wOS0xNRoDTEdBKgJETDIDODU2KAA6AkY5agwIAhIIL20vMGYycnFyBwgBEgNMR0FAAUgBcAGCAQsI____________AZgBAsgBAQ&tfu=CmxDalJJT0dSMVVrWm1WMGRUU1RSQlNtdHJObEZDUnkwdExTMHRMUzB0TFhaMFlYY3lNMEZCUVVGQlIzQmthRU5qUTBKbldrTkJFZ1ZFVERnMU5ob0xDTWlEQVJBQ0dnTlZVMFE0SEhESWd3RT0SAggAIgA"
-    }
-  }
 }
 
 resource "aws_ecr_lifecycle_policy" "priceCheckerPolicy" {
