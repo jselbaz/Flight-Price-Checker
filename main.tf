@@ -10,7 +10,7 @@ data "aws_iam_role" "docker-price-checker-role" {
 
 resource "aws_lambda_function" "docker-price-checker_tf" {
   function_name = "docker-price-checker_tf"
-  timeout           = 90 # seconds
+  timeout           = 180 # seconds
   image_uri         = "${data.aws_ecr_repository.priceChecker.repository_url}:latest"
   package_type      = "Image"
   memory_size       = "1024"
