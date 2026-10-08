@@ -3,7 +3,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support import expected_conditions as EC
 import smtplib
 import boto3
 import re
@@ -24,7 +23,7 @@ def lambda_handler(event, context):
             ],
             WithDecryption=True
         )
-        
+
     response = response.get('Parameters')
 
     for item in response:
@@ -77,13 +76,13 @@ def lambda_handler(event, context):
         return flights
 
     flights = get_flights()
-    
+
     if not flights:
         print("No flights found in flight_pricing table — nothing to check.")
         return {"statusCode": 200, "body": "No flights configured."}
 
     # Create an App Password for gmail here https://myaccount.google.com/apppasswords
-    def notify(flight_num, current_price, price, fare_num):
+    def notify(flight_num, current_price, price, fare_name):
         email_message = (
             f"Subject: Price Drop for Flight {flight_num}\n\n"
             f"Flight {flight_num} ({fare_name}) has dropped from ${current_price} to ${price}"
@@ -100,32 +99,49 @@ def lambda_handler(event, context):
         Finds all fare tier name/price pairs on a Google Flights booking page,
         excludes any tier matching exclude_keywords (e.g. Basic Economy),
         and returns the cheapest remaining tier (name, price) as (str, int).
+
+        If the page has no fare tier cards at all (e.g. Air France, which only
+        shows a single fare), falls back to the standalone price exposed via an
+        aria-label like "671 US dollars" and returns ("Single fare", price).
         """
+        # Wait for either fare tier headings or a standalone price to render
         WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.TAG_NAME, "h3"))
+            lambda d: d.find_elements(By.TAG_NAME, "h3")
+            or d.find_elements(By.CSS_SELECTOR, "span[aria-label*='US dollars']")
         )
 
-        fare_names = driver.find_elements(By.TAG_NAME, "h3")
         fares = []
+        tiers_found = 0  # every real fare card, including excluded "basic" ones
 
-        for name_el in fare_names:
+        for name_el in driver.find_elements(By.TAG_NAME, "h3"):
             name_text = name_el.text.strip()
             if not name_text:
-                continue
-            if any(kw.lower() in name_text.lower() for kw in exclude_keywords):
                 continue
             try:
                 container = name_el.find_element(By.XPATH, "./parent::*")
                 price_text = container.find_element(By.CLASS_NAME, "tZe0ff").text
                 price_value = int(re.sub(r"[^\d]", "", price_text))
-                fares.append((name_text, price_value))
             except Exception:
                 continue  # this h3 wasn't a fare card
 
-        if not fares:
-            return None
+            tiers_found += 1
+            if any(kw.lower() in name_text.lower() for kw in exclude_keywords):
+                continue
+            fares.append((name_text, price_value))
 
-        return min(fares, key=lambda x: x[1])  # cheapest non-basic tier
+        if fares:
+            return min(fares, key=lambda x: x[1])  # cheapest non-basic tier
+
+        # No fare tiers at all: use the standalone price. If tiers existed but
+        # were all excluded as "basic", don't fall back — that would report the
+        # Basic price, which is exactly what we're trying to avoid.
+        if tiers_found == 0:
+            for el in driver.find_elements(By.CSS_SELECTOR, "span[aria-label*='US dollars']"):
+                m = re.search(r"([\d,]+)\s+US dollars", el.get_attribute("aria-label") or "")
+                if m:
+                    return ("Single fare", int(m.group(1).replace(",", "")))
+
+        return None
 
     driver = initialise_driver()
 
